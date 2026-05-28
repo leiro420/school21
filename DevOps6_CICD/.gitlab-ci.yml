@@ -1,0 +1,87 @@
+stages:
+  - build
+  - style
+  - test
+  - deploy
+
+variables:
+  TELEGRAM_BOT_TOKEN: "8542998306:AAFbqa1UXhgc1bj0MZ6TyIVHlKlmRA0W6TA"
+  TELEGRAM_CHAT_ID: "118748359"
+
+build_main:
+  stage: build
+  tags:
+    - build
+  script:
+    - cd src/code-samples
+    - mkdir -p ../artifacts/bin
+    - make clean
+    - make all
+    - cp DO ../artifacts/bin/
+  artifacts:
+    paths:
+      - src/artifacts/bin/
+    expire_in: 30 days
+  allow_failure: false
+
+style_check:
+  stage: style
+  tags:
+    - style
+  script:
+    - cd src/
+    - echo "Checking C code style"
+    - clang-format -n -Werror code-samples/main.c
+    - echo "Style checks passed"
+  needs:
+    - build_main
+  allow_failure: false
+
+integration_tests:
+  stage: test
+  dependencies: 
+    - build_main
+  tags:
+    - test
+  script:
+    - cd src/artifacts/bin
+    - ./DO 1
+    - ./DO 2
+    - ./DO || echo "Обнаружена ошибка нет аргумента"
+    - ./DO 3
+    - ./DO 4
+    - ./DO 7 || echo "Обнаружена ошибка неверное число"
+    - ./DO 5
+    - ./DO 6
+    - ./DO 8 8 || echo "Обнаружена ошибка нужен только 1 аргумент"
+    - echo "Integration tests passed"
+  needs:
+    - build_main
+    - style_check
+  allow_failure: false
+
+deploy_prod:
+  stage: deploy
+  dependencies:
+    - build_main
+  tags:
+    - deploy
+  script:
+    - cd src/
+    - ./deploy.sh
+  needs:
+    - build_main
+    - style_check
+    - integration_tests
+  allow_failure: false
+
+notify:
+  stage: .post
+  tags:
+    - bot
+  script:
+    - cd src/
+    - ./bot.sh
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "push"'
+      when: always
