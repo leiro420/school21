@@ -1,0 +1,27 @@
+version: "3.9"
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: localhost
+    networks:
+      - school21
+
+  proxy:
+    image: nginx:latest
+    container_name: proxy
+    depends_on:
+      - app
+    ports:
+      - "80:8080"
+    networks:
+      - school21
+    volumes:
+      - ./proxy-nginx.conf:/etc/nginx/nginx.conf:ro
+
+networks:
+  school21:
+    driver: bridge
+
